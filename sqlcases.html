@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<!-- sqlcases.html — SQL Test Case Designer: parse a query, generate test cases.
+
+     Three columns, not two. The rail on the left is everything that feeds a
+     run — the query, the techniques, the sample values, the inferred schema —
+     stacked as tabs rather than as accordions, so opening one no longer pushes
+     the others off screen. The middle column is the case list and nothing
+     else. The inspector on the right holds one case at a time: its rationale,
+     the rows to prepare and the query to run afterwards, so opening a case
+     stops shoving every case below it down the page.
+
+     Each rail pane and each insight pane is written out here rather than built
+     by ui.js. The query textarea has a caret and an undo stack, and rebuilding
+     it on every tab switch would throw both away; ui.js only toggles `hidden`.
+
+     Static text carries data-i18n="<key>" (textContent) or data-i18n-ph="<key>"
+     (placeholder); ui.js fills both in on load and on every language switch.
+     The help modal is the exception: its prose is long enough that keeping two
+     hand-written language blocks and toggling them reads better than threading
+     a dozen markup-bearing strings through the catalog. -->
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SQL Test Case Designer</title>
+  <link rel="stylesheet" href="css/sqlcases.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <button id="btnRail" class="t-btn t-btn-icon" data-i18n-title="ui.railToggle">☰</button>
+    <span class="topbar-title">🧪 <span data-i18n="ui.title"></span></span>
+    <span class="topbar-sub" data-i18n="ui.subtitle"></span>
+    <div class="topbar-actions">
+      <button id="toggleLang" class="t-btn" data-i18n-title="ui.langTip">🌐 <span id="langLabel">VI</span></button>
+      <button id="btnHelp" class="t-btn"><span data-i18n="ui.help"></span></button>
+      <button id="toggleTheme" class="t-btn t-btn-icon" data-i18n-title="ui.themeTip">🌙</button>
+    </div>
+  </header>
+
+  <div class="app" id="app">
+
+    <!-- ===== LEFT RAIL: everything that feeds a run ===== -->
+    <aside class="rail" id="rail">
+      <div class="rail-head">
+        <div class="rail-tabs" id="railTabs">
+          <button type="button" class="rtab active" data-rt="sql">
+            <span id="railTabSqlLabel" data-i18n="ui.railSql"></span>
+          </button>
+          <button type="button" class="rtab" data-rt="tech">
+            <span data-i18n="ui.railTech"></span><span class="rtab-n" id="railTechCount"></span>
+          </button>
+          <button type="button" class="rtab" data-rt="values" hidden>
+            <span data-i18n="ui.railValues"></span><span class="rtab-n" id="railValuesCount"></span>
+          </button>
+          <button type="button" class="rtab" data-rt="schema" hidden>
+            <span data-i18n="ui.railSchema"></span><span class="rtab-n" id="railSchemaCount"></span>
+          </button>
+        </div>
+        <button id="btnRailClose" class="t-btn t-btn-icon t-btn-ghost" data-i18n-title="ui.railCollapse">⟨</button>
+      </div>
+
+      <div class="rail-body" id="railBody">
+
+        <section class="rail-pane" id="paneSql">
+          <div class="pane-head">
+            <div class="pill-row" id="modeToggle">
+              <button type="button" class="pill active" data-mode="single"><span data-i18n="ui.modeSingle"></span></button>
+              <button type="button" class="pill" data-mode="compare"><span data-i18n="ui.modeCompare"></span></button>
+            </div>
+            <select id="sampleSelect" class="mini-select"></select>
+            <button id="btnClear" class="t-btn t-btn-sm"><span data-i18n="ui.clear"></span></button>
+          </div>
+          <label class="pane-label" id="sqlLabel" for="sqlInput" data-i18n="ui.sqlQuery"></label>
+          <textarea id="sqlInput" spellcheck="false" placeholder="SELECT u.id, u.name, COUNT(o.id) AS orders&#10;  FROM users u&#10;  LEFT JOIN orders o ON o.user_id = u.id&#10; WHERE u.age BETWEEN 18 AND 65&#10; GROUP BY u.id, u.name&#10;HAVING COUNT(o.id) > 3&#10; LIMIT 20"></textarea>
+          <div id="parseErrors" class="parse-errors" hidden></div>
+
+          <!-- Compare mode only: the "after" side of the query, diffed against
+               #sqlInput above (which becomes the "before" side while this is shown). -->
+          <div id="sqlAfterCard" hidden>
+            <label class="pane-label" for="sqlInputAfter" data-i18n="ui.sqlQueryAfter"></label>
+            <textarea id="sqlInputAfter" spellcheck="false" data-i18n-ph="ui.sqlAfterPlaceholder"></textarea>
+            <div id="parseErrorsAfter" class="parse-errors" hidden></div>
+          </div>
+        </section>
+
+        <section class="rail-pane" id="paneTech" hidden>
+          <div class="pane-sum" id="techSummary"></div>
+          <ul class="tech-list" id="techList"></ul>
+
+          <div class="opt-row">
+            <label for="optMaxFull" data-i18n="ui.fullTableUpTo"></label>
+            <select id="optMaxFull" class="mini-select">
+              <option value="3"></option>
+              <option value="4" selected></option>
+              <option value="5"></option>
+              <option value="6"></option>
+            </select>
+          </div>
+          <p class="helper" data-i18n="ui.mcdcHint"></p>
+
+          <label class="check-row">
+            <input type="checkbox" id="optJoinConds" checked />
+            <span data-i18n="ui.alsoOnClauses"></span>
+          </label>
+        </section>
+
+        <section class="rail-pane" id="paneValues" hidden>
+          <div class="vb-head">
+            <div class="pane-sum" id="valuesSummary"></div>
+            <button id="btnResetValues" class="t-btn t-btn-sm" data-i18n-title="vb.resetAllTip"><span data-i18n="vb.resetAll"></span></button>
+          </div>
+          <p class="helper" data-i18n="vb.hint"></p>
+          <div id="valuesBody"></div>
+        </section>
+
+        <section class="rail-pane" id="paneSchema" hidden>
+          <div class="vb-head sc-head">
+            <div class="pane-sum" id="schemaSummary"></div>
+            <button id="btnDiagram" class="t-btn t-btn-sm sc-dg-btn" data-i18n-title="dg.diagramTip">
+              <svg class="sc-dg-ico" viewBox="0 0 16 16" aria-hidden="true">
+                <rect x="0.9" y="1.6" width="6.2" height="4.6" rx="1.2"/>
+                <rect x="8.9" y="9.8" width="6.2" height="4.6" rx="1.2"/>
+                <path d="M4 6.2v3.3a2.6 2.6 0 0 0 2.6 2.6h2.3"/>
+              </svg>
+              <span data-i18n="dg.diagram"></span>
+            </button>
+          </div>
+          <div id="schemaBody"></div>
+          <p class="helper" data-i18n="dg.schemaHint"></p>
+        </section>
+
+      </div>
+
+      <div class="rail-foot">
+        <span class="status" id="parseStatus"></span>
+        <button id="btnAnalyze" class="primary-gradient" data-i18n="ui.analyze"></button>
+      </div>
+    </aside>
+
+    <!-- ===== CENTRE: the case list and nothing else ===== -->
+    <main class="main">
+
+      <div class="main-head">
+        <div class="metrics" id="statRow">
+          <div class="metric"><span class="metric-v" id="statTotal">0</span><span class="metric-l" data-i18n="ui.statCases"></span></div>
+          <div class="metric metric-hi"><span class="metric-v" id="statHigh">0</span><span class="metric-l" data-i18n="ui.statHigh"></span></div>
+          <div class="metric"><span class="metric-v" id="statConds">0</span><span class="metric-l" data-i18n="ui.statConditions"></span></div>
+          <div class="metric"><span class="metric-v" id="statJoins">0</span><span class="metric-l" data-i18n="ui.statJoins"></span></div>
+          <div class="metric"><span class="metric-v" id="statTables">0</span><span class="metric-l" data-i18n="ui.statTables"></span></div>
+        </div>
+        <div class="main-head-actions">
+          <div class="menu-wrap">
+            <button id="btnExport" class="t-btn" aria-expanded="false" aria-haspopup="true">
+              <span data-i18n="ui.export"></span><span class="caret">▾</span>
+            </button>
+            <div class="menu" id="exportMenu" hidden>
+              <button id="btnCsv" disabled><span class="i">📄</span><span data-i18n="ui.menuCsv"></span><small>.csv</small></button>
+              <button id="btnJson" disabled><span class="i">🧾</span><span data-i18n="ui.menuJson"></span><small>.json</small></button>
+              <button id="btnCopyJson" disabled><span class="i">📋</span><span data-i18n="ui.menuCopyJson"></span></button>
+              <hr />
+              <button id="btnDataCsv" disabled><span class="i">🗃</span><span data-i18n="ui.menuDataCsv"></span><small data-i18n="ui.menuManyCsv"></small></button>
+              <button id="btnVerifySql" disabled><span class="i">✅</span><span data-i18n="ui.menuVerifySql"></span><small>.sql</small></button>
+            </div>
+          </div>
+          <button id="btnInsp" class="t-btn t-btn-icon" data-i18n-title="ui.inspToggle">◧</button>
+        </div>
+      </div>
+
+      <!-- Compare mode only: three clickable buckets over the same cases the
+           list shows. Two of them filter it; the third opens the stale panel,
+           because those cases are not in the list to be filtered to. -->
+      <div class="triage" id="triage" hidden>
+        <button type="button" class="tri tri-changed" data-tri="changed">
+          <span class="tri-v" id="triChangedN">0</span>
+          <span class="tri-tx"><span class="tri-t" data-i18n="ui.impactChanged"></span><span class="tri-d" data-i18n="ui.impactChangedTip"></span></span>
+        </button>
+        <button type="button" class="tri tri-unrelated" data-tri="unrelated">
+          <span class="tri-v" id="triUnrelatedN">0</span>
+          <span class="tri-tx"><span class="tri-t" data-i18n="ui.impactUnrelated"></span><span class="tri-d" data-i18n="ui.impactUnrelatedTip"></span></span>
+        </button>
+        <button type="button" class="tri tri-stale" data-tri="stale">
+          <span class="tri-v" id="triStaleN">0</span>
+          <span class="tri-tx"><span class="tri-t" data-i18n="ui.impactStale"></span><span class="tri-d" data-i18n="ui.impactStaleTip"></span></span>
+        </button>
+      </div>
+
+      <!-- The strips that used to sit above the table, as one collapsible
+           tabbed block of bounded height. -->
+      <section class="insight" id="insight" hidden>
+        <div class="insight-tabs" id="insightTabs">
+          <button type="button" class="itab" data-it="diff" hidden>
+            <span class="dot dot-chg"></span><span data-i18n="ui.diff"></span><span class="itab-n" id="itabDiffN"></span>
+          </button>
+          <button type="button" class="itab" data-it="findings" hidden>
+            <span class="dot" id="findingsDot"></span><span data-i18n="ui.findings"></span><span class="itab-n" id="itabFindingsN"></span>
+          </button>
+          <button type="button" class="itab" data-it="coverage" hidden>
+            <span class="dot dot-ok"></span><span data-i18n="ui.coverage"></span><span class="itab-n" id="itabCoverageN"></span>
+          </button>
+          <button type="button" class="itab" data-it="stale" hidden>
+            <span class="dot dot-err"></span><span data-i18n="ui.stale"></span><span class="itab-n" id="itabStaleN"></span>
+          </button>
+          <button type="button" class="itab" data-it="analysis" hidden>
+            <span class="dot"></span><span data-i18n="ui.whatParsed"></span>
+          </button>
+          <button id="btnInsight" class="t-btn t-btn-icon t-btn-ghost collapse" data-i18n-title="ui.insightToggle">▾</button>
+        </div>
+        <div class="insight-body" id="insightBody">
+          <div class="insight-pane" id="paneDiff" hidden><div id="diffBody"></div></div>
+          <div class="insight-pane" id="paneFindings" hidden><div class="findings" id="findings"></div></div>
+          <div class="insight-pane" id="paneCoverage" hidden><div class="coverage" id="coverage"></div></div>
+          <div class="insight-pane" id="paneStale" hidden>
+            <p class="helper" data-i18n="ui.staleHint"></p>
+            <div id="staleBody"></div>
+          </div>
+          <div class="insight-pane" id="paneAnalysis" hidden><div id="analysisBody"></div></div>
+        </div>
+      </section>
+
+      <!-- Docked: this is the one band worth keeping on screen while
+           scrolling a long list, so it sticks and the rest scrolls past. -->
+      <div class="cmdbar-dock" id="cmdbarDock">
+      <div class="cmdbar" id="cmdbar">
+        <div class="cmd-row">
+          <div class="searchbox">
+            <span class="mag">🔍</span>
+            <input type="search" id="searchBox" class="search" data-i18n-ph="ui.search" />
+          </div>
+          <div class="cmd-actions">
+            <div class="menu-wrap">
+              <button id="btnFilters" class="t-btn" aria-expanded="false" aria-haspopup="true">
+                <span data-i18n="ui.filters"></span><span class="filter-count" id="filterCount" hidden>0</span>
+              </button>
+              <div class="popover" id="filterPop" hidden>
+                <div class="fl">
+                  <label for="prioFilter" data-i18n="ui.colPrio"></label>
+                  <select id="prioFilter" class="mini-select">
+                    <option value="" data-i18n="ui.allPriorities"></option>
+                    <option value="High" data-i18n="ui.highOnly"></option>
+                    <option value="Medium" data-i18n="ui.mediumOnly"></option>
+                    <option value="Low" data-i18n="ui.lowOnly"></option>
+                  </select>
+                </div>
+                <div class="fl">
+                  <label for="clauseFilter" data-i18n="ui.filterClause"></label>
+                  <select id="clauseFilter" class="mini-select">
+                    <option value="" data-i18n="ui.allClauses"></option>
+                  </select>
+                </div>
+                <div class="fl">
+                  <label for="columnFilter" data-i18n="ui.filterColumn"></label>
+                  <select id="columnFilter" class="mini-select">
+                    <option value="" data-i18n="ui.allColumns"></option>
+                  </select>
+                </div>
+                <label class="check-row check-row-inline">
+                  <input type="checkbox" id="fixtureFilter" />
+                  <span data-i18n="ui.onlyWithFixture"></span>
+                </label>
+                <div class="pop-foot">
+                  <button id="btnClearFilters" class="t-btn t-btn-sm" data-i18n="ui.clearFilters"></button>
+                  <button id="btnCloseFilters" class="t-btn t-btn-sm t-btn-primary" data-i18n="ui.filtersDone"></button>
+                </div>
+              </div>
+            </div>
+            <div class="seg" id="density">
+              <button type="button" data-d="full" class="active" data-i18n="ui.densityFull"></button>
+              <button type="button" data-d="dense" data-i18n="ui.densityDense"></button>
+            </div>
+          </div>
+        </div>
+        <div class="cmd-sep"></div>
+        <div class="cmd-row cmd-row-techs">
+          <span class="cmd-lbl" data-i18n="ui.colTech"></span>
+          <div class="pill-row" id="techFilter"></div>
+        </div>
+      </div>
+      </div>
+
+      <div class="listwrap" id="listwrap">
+        <div class="caselist" id="caseList"></div>
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">🧪</div>
+          <div class="empty-title"></div>
+          <div class="empty-sub"></div>
+          <div class="empty-steps" id="emptySteps">
+            <span class="step"><b>1</b><span data-i18n="ui.step1"></span></span>
+            <span class="step"><b>2</b><span data-i18n="ui.step2"></span></span>
+            <span class="step"><b>3</b><span data-i18n="ui.step3"></span></span>
+          </div>
+          <button id="btnEmptyClear" class="t-btn t-btn-sm" data-i18n="ui.clearFilters" hidden></button>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ===== RIGHT: one case at a time ===== -->
+    <aside class="insp" id="insp"><div id="inspInner"></div></aside>
+
+  </div>
+  <!-- Help overlay -->
+  <div class="modal-backdrop" id="helpModal" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h3 data-i18n="ui.helpTitle"></h3>
+        <button class="t-btn t-btn-sm" id="btnHelpClose">✕</button>
+      </div>
+
+      <div class="modal-body help-lang" data-help-lang="vi">
+        <p>Câu truy vấn được tách token và phân tích thành cây cú pháp, rồi rút gọn thành một mô hình phẳng:
+           các điều kiện lá được đánh số, danh sách join, phần gom nhóm, sắp xếp và phân trang. Bốn kỹ thuật
+           chạy trên mô hình đó.</p>
+
+        <h4>EP + BVA</h4>
+        <p><b>Phân hoạch tương đương (Equivalence Partitioning)</b> chia miền giá trị của mỗi điều kiện thành
+           các lớp mà câu truy vấn đối xử như nhau, rồi lấy một giá trị đại diện cho mỗi lớp.
+           <b>Phân tích giá trị biên (Boundary Value Analysis)</b> bổ sung những giá trị mà lỗi lệch một đơn vị
+           thực sự nằm ở đó — chính giá trị biên và hai giá trị kề nó. Bước nhảy theo kiểu dữ liệu suy được:
+           1 với số nguyên, 0.01 với tiền tệ, một ngày với kiểu date, một giây với timestamp. Cột chuỗi không có
+           giá trị liền kề dạng số, nên case biên của chúng xoay quanh độ dài, chuỗi rỗng và khoảng trắng.</p>
+
+        <h4>Bảng quyết định + độ phủ</h4>
+        <p>Mệnh đề WHERE là một biểu thức logic, nên các luật của nó chính là một bảng quyết định: mỗi điều kiện
+           một cột, mỗi tổ hợp một dòng. Trong ngưỡng cấu hình, bạn nhận đủ bảng 2ⁿ. Vượt ngưỡng, công cụ chuyển
+           sang <b>MC/DC</b> — với mỗi điều kiện, một cặp luật giống hệt nhau ngoại trừ điều kiện đó, và việc lật
+           riêng nó làm đổi kết quả chung. Điều kiện nào không tìm được cặp như vậy sẽ bị báo cáo: nó không thể
+           tác động độc lập lên kết quả, thường nghĩa là thừa hoặc sai logic. Biểu thức <b>CASE</b> được phủ theo
+           nhánh, bao gồm cả nhánh NULL ngầm định khi thiếu ELSE.</p>
+
+        <h4>NULL &amp; logic 3 trạng thái</h4>
+        <p>Điều kiện trong SQL trả về TRUE, FALSE hoặc UNKNOWN, và chỉ TRUE mới giữ lại dòng. Kỹ thuật này chỉ
+           đích danh giá trị NULL đứng sau từng hành vi: <code>status &lt;&gt; 'x'</code> làm rơi mất các dòng NULL,
+           <code>NOT IN</code> trả về rỗng khi subquery sinh ra NULL, <code>COUNT(col)</code> lệch với
+           <code>COUNT(*)</code>, khoá join mang NULL không bao giờ khớp, khoá gom nhóm NULL gộp thành một nhóm,
+           và vị trí NULL trong ORDER BY khác nhau tuỳ hệ quản trị.</p>
+
+        <h4>JOIN / GROUP BY / ORDER-LIMIT</h4>
+        <p>Nơi lỗi nằm ở hình dạng kết quả chứ không phải ở một giá trị: mỗi join được test ở ba mức lực lượng
+           1:1, mồ côi và 1:n; một điều kiện WHERE đặt trên bảng thuộc outer join âm thầm biến nó thành inner
+           join; nhóm rỗng, một nhóm và nhiều nhóm; các dòng bằng nhau trong ORDER BY; và các trang ở mức bằng,
+           dưới, vượt quá số dòng thực có.</p>
+
+        <h4>Giá trị mẫu</h4>
+        <p>Mọi giá trị trong kết quả hoặc là đọc được từ câu truy vấn, hoặc là do công cụ tự nghĩ ra. Những giá trị
+           tự nghĩ ra được gom hết vào bảng <b>Giá trị mẫu</b> ở cột trái: các tham số truyền vào (<code>:amount</code>,
+           <code>?</code>) mà câu truy vấn không cho biết giá trị, và giá trị lấp chỗ trống cho những cột không bị
+           điều kiện nào ràng buộc. Sửa một ô ở đó là toàn bộ case và dữ liệu mẫu dùng giá trị ấy được sinh lại theo,
+           thay vì phải sửa từng case một.</p>
+        <p>Tham số một khi đã có giá trị sẽ được coi như hằng số viết thẳng trong câu lệnh, nên
+           <code>age &gt;= :min</code> với <code>:min = 18</code> cho ra đúng bộ biên 17 / 18 / 19 chứ không còn ghi
+           <code>:min - 1</code>. Các cột khoá chính và khoá ngoại cố tình không cho sửa: chúng là thứ nối các dòng
+           dữ liệu với nhau, ghi đè lên là hỏng chính cái join mà dữ liệu mẫu sinh ra để kiểm thử. Vì những giá trị
+           này không nằm trong câu truy vấn, chúng được báo ngay phía trên danh sách case.</p>
+
+        <h4>Những giới hạn nên biết</h4>
+        <ul>
+          <li>Chỉ câu lệnh ngoài cùng được phân tích. Hãy dán riêng từng CTE hoặc subquery để có bộ case riêng.</li>
+          <li>Không có lược đồ bảng, nên kiểu cột được suy từ giá trị so sánh trước, tên cột sau. Khi cả hai đều
+              không quyết định được, giá trị biên chỉ là chỗ điền tạm và case sẽ nói rõ điều đó.</li>
+          <li>Kết quả mong đợi mô tả điều mà ngữ nghĩa SQL bắt buộc, không phải điều dữ liệu hiện tại của bạn đang có.</li>
+        </ul>
+      </div>
+
+      <div class="modal-body help-lang" data-help-lang="en" hidden>
+        <p>The query is tokenised and parsed into a statement tree, then reduced to a flat model: numbered leaf
+           conditions, join list, grouping, ordering and paging. Four techniques run over that model.</p>
+
+        <h4>EP + BVA</h4>
+        <p><b>Equivalence Partitioning</b> splits each predicate's input domain into classes the query treats the
+           same way and takes one value from each. <b>Boundary Value Analysis</b> adds the values where off-by-one
+           defects live — the boundary and its two neighbours. The step size follows the inferred type: 1 for an
+           integer, 0.01 for money, a day for a date, a second for a timestamp. String columns have no numeric
+           neighbour, so their boundary cases are about length, empty string and whitespace instead.</p>
+
+        <h4>Decision Table + Coverage</h4>
+        <p>The WHERE clause is a boolean expression, so its rules are a decision table: one column per condition,
+           one row per combination. Up to the configured limit you get the full 2ⁿ table. Past it, the tool switches
+           to <b>MC/DC</b> — for each condition, a pair of otherwise-identical rules where flipping only that
+           condition flips the result. A condition with no such pair is reported: it cannot independently affect the
+           outcome, which usually means it is redundant or the logic is wrong. <b>CASE</b> expressions get branch
+           coverage, including the implicit NULL branch a missing ELSE leaves behind.</p>
+
+        <h4>NULL &amp; 3-valued logic</h4>
+        <p>SQL predicates return TRUE, FALSE or UNKNOWN, and only TRUE keeps a row. This technique names the
+           specific NULL behind each behaviour: <code>status &lt;&gt; 'x'</code> dropping NULL rows,
+           <code>NOT IN</code> returning nothing when the subquery yields a NULL, <code>COUNT(col)</code>
+           disagreeing with <code>COUNT(*)</code>, NULL join keys never matching, NULL grouping keys collapsing
+           into one group, engine-specific NULL placement in ORDER BY.</p>
+
+        <h4>JOIN / GROUP BY / ORDER-LIMIT</h4>
+        <p>Where the defect is in the shape of the result rather than a value: each join tested at 1:1, orphan and
+           1:n cardinality; a WHERE predicate on an outer-joined table silently turning it into an inner join;
+           empty, single and multiple groups; ties in ORDER BY; and pages at, below and beyond the row count.</p>
+
+        <h4>Sample values</h4>
+        <p>Every value in the results is either read from the query or invented by the tool. The invented ones are
+           collected into the <b>Sample values</b> panel on the left: the bind parameters (<code>:amount</code>,
+           <code>?</code>) whose value the query does not carry, and the filler used for columns no predicate
+           constrains. Editing one there re-runs generation, so every case and every fixture row that uses it
+           changes together rather than case by case.</p>
+        <p>A parameter with a value is treated as a literal written into the statement, so
+           <code>age &gt;= :min</code> with <code>:min = 18</code> produces the real 17 / 18 / 19 boundary trio
+           instead of <code>:min - 1</code>. Primary and foreign keys are deliberately not editable: they are what
+           links the fixture rows to each other, and typing over them breaks the very join the fixture exists to
+           exercise. Because these values are not in the query text, they are reported above the case list.</p>
+
+        <h4>Limits worth knowing</h4>
+        <ul>
+          <li>Only the outer statement is analysed. Paste a CTE or a subquery separately for its own cases.</li>
+          <li>There is no schema, so column types are inferred from comparison literals first and column names
+              second. When neither settles it, the boundary value is a placeholder and the case says so.</li>
+          <li>Expected results describe what the SQL semantics require, not what your data currently contains.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- The schema as a picture: tables as boxes, foreign keys as lines between
+       them, on a surface that pans, zooms and lets a box be dragged out of the
+       way. Everything in it comes from the same inference the Schema pane
+       lists; this is the same content read as a shape instead of a list. -->
+  <div class="modal-backdrop" id="diagramModal" hidden>
+    <div class="modal modal-diagram">
+      <div class="modal-head">
+        <h3 data-i18n="dg.diagramTitle"></h3>
+        <div class="dgm-tools">
+          <span class="dgm-count" id="dgCount"></span>
+          <button id="btnDgZoomOut" class="t-btn t-btn-sm t-btn-icon" data-i18n-title="dg.zoomOut">−</button>
+          <span class="dgm-zoom" id="dgZoom">100%</span>
+          <button id="btnDgZoomIn" class="t-btn t-btn-sm t-btn-icon" data-i18n-title="dg.zoomIn">+</button>
+          <button id="btnDgFit" class="t-btn t-btn-sm" data-i18n-title="dg.fitTip"><span data-i18n="dg.fit"></span></button>
+          <button id="btnDgClose" class="t-btn t-btn-sm t-btn-icon" data-i18n-title="dg.close">✕</button>
+        </div>
+      </div>
+      <div class="dgm-stage" id="dgStage">
+        <div class="dgm-world" id="dgWorld">
+          <svg class="dgm-links" id="dgLinks" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+      </div>
+      <p class="helper dgm-hint" id="dgHint"></p>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+
+  <script type="module" src="sqlcases/ui.js"></script>
+</body>
+</html>

@@ -1,0 +1,578 @@
+/**
+ * popup.css — Popup UI styles.
+ *
+ * Cut down from Pocket QA's popup.css, which this popup is built
+ * on: the same tokens, the same six button roles, the same card, status bar and
+ * guide modal — only the rules for what this popup actually shows are kept. The
+ * token names also match dbtools.css and sqlcases.css, so the shared
+ * `popupTheme` setting repaints all three pages alike.
+ */
+
+:root {
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+  --danger: #ef4444;
+  --danger-dark: #dc2626;
+  --success: #10b981;
+  --success-dark: #059669;
+  --warning: #f59e0b;
+  --warning-dark: #d97706;
+  /* Text-safe amber: --warning is a fill colour and is too light to read as
+     text on a light surface. Use --warning-text wherever amber is the type. */
+  --warning-text: #b45309;
+  --secondary: #8b5cf6;
+  --secondary-dark: #7c3aed;
+  /* Button fills that carry white text. In light they are the accents
+     themselves; dark mode lightens the accents for text on a dark surface, and
+     white on those light fills was barely legible (#60a5fa: 2.5:1). */
+  --primary-fill: #3b82f6;
+  --primary-fill-hover: #2563eb;
+  --success-fill: #10b981;
+  --success-fill-hover: #059669;
+  --danger-fill: #ef4444;
+  --danger-fill-hover: #dc2626;
+  --bg: #f9fafb;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --text: #111827;
+  --muted: #6b7280;
+  --secondary-bg: #f3f4f6;
+  --secondary-text: #111827;
+  --list-bg: #f3f4f6;
+  /* Modal backdrop — unified */
+  --modal-backdrop: rgba(0, 0, 0, 0.52);
+}
+
+[data-theme="dark"] {
+  --primary: #60a5fa;
+  --primary-dark: #3b82f6;
+  --danger: #f87171;
+  --danger-dark: #ef4444;
+  --success: #34d399;
+  --success-dark: #10b981;
+  --warning: #fbbf24;
+  --warning-dark: #f59e0b;
+  --warning-text: #fbbf24;
+  --secondary: #a78bfa;
+  --secondary-dark: #8b5cf6;
+  --primary-fill: #3b82f6;
+  --primary-fill-hover: #2563eb;
+  --success-fill: #10b981;
+  --success-fill-hover: #059669;
+  --danger-fill: #ef4444;
+  --danger-fill-hover: #dc2626;
+  --bg: #050f1f;
+  --card: #0d1829;
+  --border: #2d4157;
+  --text: #f5f7fa;
+  --muted: #b8c8da;
+  --secondary-bg: #1a2938;
+  --secondary-text: #f5f7fa;
+  --list-bg: #0d1829;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Same width as Pocket QA's popup. The height follows the content — two
+   cards do not need the 600px that five tabs of them do. */
+body {
+  width: 480px;
+  max-height: 600px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+h3 {
+  font-size: 12px;
+  margin: 0 0 6px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.card {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+/* Title left; the ? button and any on/off switch sit together on the right. */
+.card-head h3 { margin: 0 auto 0 0; }
+
+.card-note {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 6px 0 0;
+}
+
+button,
+input,
+select,
+textarea {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  font-size: 13px;
+}
+
+/* Checkbox/radio tick colour: the extension's own accent rather than the
+   browser's generic blue. */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--primary);
+}
+
+/* Every button colours itself as one of six roles, and every rule below uses
+   that role's colours rather than its own:
+     primary    --primary-fill, white text; hover --primary-fill-hover
+     secondary  --card on --border, --text; hover --secondary-bg, --primary border and text
+     quiet      transparent on --border, --muted; hover an 8% --primary tint, --primary border and text
+     danger     --card on --danger, --danger text; hover --danger-fill, white text
+     success    --success-fill, white text; hover --success-fill-hover
+     tinted     8% of an accent, 40% border, accent text; hover 14%, full border */
+button {
+  cursor: pointer;
+  font-weight: 500;
+  background: var(--primary-fill);
+  color: white;
+  border: 2px solid var(--primary-fill);
+  transition: all 0.2s ease;
+  box-shadow: none;
+}
+
+/* :where() drops this to the specificity of a bare `button` (0,0,1), so any
+   class rule's own hover wins over it. */
+button:where(:hover:not(:disabled)) {
+  background: var(--primary-fill-hover);
+  border-color: var(--primary-fill-hover);
+  transform: translateY(-1px);
+}
+
+button:where(:active:not(:disabled)) {
+  transform: translateY(0);
+}
+
+button.secondary {
+  background: var(--card);
+  color: var(--text);
+  border: 2px solid var(--border);
+  box-shadow: none;
+}
+
+button.secondary:hover:not(:disabled) {
+  background: var(--secondary-bg);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  filter: none;
+}
+
+/* === Scrollbars — hidden globally === */
+*::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
+
+/* === Scroll lock while a modal is open === */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* === Header (Status bar) ===
+   Sticky, not the original's fixed + measured spacer: with no tab row and no
+   banners coming and going, its height never changes. */
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--card);
+  border-bottom: 2px solid var(--border);
+}
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--card);
+  min-height: 30px;
+}
+
+.status-bar .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: 0 0 8px;
+  transition: background 0.2s;
+}
+
+.status-bar .status-dot.active {
+  background: var(--success);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+}
+
+.status-bar .status-dot.inactive {
+  background: var(--danger);
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+}
+
+/* The other extension's panel has the tab: nothing wrong, just not ours. */
+.status-bar .status-dot.warn {
+  background: var(--warning);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.45);
+}
+
+.status-bar .status-dot.recording {
+  background: var(--danger);
+  animation: pulse-dot 1s ease infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(239, 68, 68, 0.5); }
+  50% { opacity: 0.4; box-shadow: 0 0 2px rgba(239, 68, 68, 0.2); }
+}
+
+.status-bar .status-label {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.status-bar .status-label b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.status-bar .status-spacer {
+  flex: 1;
+}
+
+.status-bar .status-brand {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.status-bar .icon-btn {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+  background: transparent;
+  border: none;
+  padding: 2px 6px;
+  font-size: 14px;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s;
+  line-height: 1;
+}
+
+.status-bar .icon-btn:hover {
+  background: var(--secondary-bg);
+  color: var(--text);
+  transform: none;
+}
+
+/* === Content === */
+.main-content {
+  padding: 10px 12px 2px;
+}
+
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.main-content {
+  animation: panelIn 0.18s ease-out;
+}
+
+.popup-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 14px 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* === Card Help Button === */
+.card-help-btn {
+  width: auto; flex: 0 0 auto; margin: 0;
+  padding: 2px 8px; font-size: 12px; font-weight: 700;
+  border-radius: 50%; min-width: 22px; height: 22px;
+  line-height: 1; cursor: pointer;
+  background: transparent; color: var(--muted);
+  border: 1px solid var(--border);
+}
+.card-help-btn:hover {
+  background: color-mix(in srgb, var(--primary) 8%, transparent); color: var(--primary); border-color: var(--primary);
+}
+
+/* === Page launcher button (the Export Code button of the original) === */
+.export-code-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 14px 10px 12px;
+  border-radius: 10px;
+  border: 1.5px solid transparent;
+  background: transparent;
+  /* `button { color: white }` above plus a transparent background would leave
+     the label white-on-white. */
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  width: 100%;
+  margin: 0 !important;
+  box-shadow: none !important;
+}
+
+.export-code-btn:hover {
+  transform: translateY(-1px);
+  background: var(--secondary-bg);
+  border-color: var(--border);
+}
+.export-code-btn:active { transform: translateY(0); }
+
+.export-code-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.export-code-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.export-code-name {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.export-code-desc {
+  font-size: 10px;
+  opacity: 0.65;
+  line-height: 1.2;
+}
+
+/* === DB Test Session card === */
+/* The status line is hidden with the `hidden` attribute; `.db-status` gives it a
+   display value, which would otherwise win and leave an empty pill on screen
+   (same rule as dbtools.css and sqlcases.css). */
+[hidden] { display: none !important; }
+
+/* Which session is recording, one click from its page. */
+.db-status {
+  display: flex; align-items: center; gap: 8px; width: 100%; margin: 0 0 8px;
+  padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: transparent; color: var(--text); font: inherit; font-size: 12px;
+  text-align: left; cursor: pointer;
+}
+.db-status:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.db-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.db-status.rec .dot { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent); }
+.db-status .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.db-status .label b { font-weight: 600; }
+.db-status .sub { color: var(--muted); white-space: nowrap; }
+/* No session recorded yet: a hint, not a link. */
+.db-status.empty { cursor: default; color: var(--muted); border-style: dashed; }
+.db-status.empty:hover { border-color: var(--border); background: transparent; }
+
+/* On/off switch in a card header (the Adminer panel's master switch). Same look
+   as Pocket QA's highlight switch (.hl-toggle-switch). */
+.switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  flex: none;
+  cursor: pointer;
+}
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+}
+.switch-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+.switch-slider::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  bottom: 2px;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s;
+}
+.switch input:checked + .switch-slider { background: var(--success); }
+.switch input:checked + .switch-slider::before { transform: translateX(16px); }
+/* The input itself is invisible, so the focus ring goes on the track. */
+.switch input:focus-visible + .switch-slider {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* === Guide modal === */
+.condition-help-modal {
+  display: flex;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: var(--modal-backdrop);
+  z-index: 2000;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+.condition-help-modal.show {
+  opacity: 1;
+  pointer-events: auto;
+  overscroll-behavior: contain;
+}
+.condition-help-modal .condition-help-content {
+  transform: translateY(-8px) scale(0.98);
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+.condition-help-modal.show .condition-help-content {
+  transform: translateY(0) scale(1);
+}
+
+/* A popup this short cannot hold the original's fixed 576px: the guide takes
+   the height there is and scrolls inside it. */
+.condition-help-content {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  width: 456px;
+  max-height: calc(100vh - 24px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  overflow: hidden;
+}
+
+.condition-help-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  border-bottom: 2px solid var(--border);
+  flex-shrink: 0;
+}
+.condition-help-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.condition-help-header button {
+  width: auto;
+  margin: 0;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+#cardHelpLangToggle {
+  font-weight: 600;
+  min-width: 34px;
+  letter-spacing: 0.02em;
+}
+
+.condition-help-body {
+  overflow-y: auto;
+  padding: 10px 14px 14px;
+}
+
+.ch-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: var(--list-bg);
+}
+.ch-item:last-child { margin-bottom: 0; }
+
+.ch-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.ch-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.badge-blue      { background: rgba(59,130,246,0.15); color: var(--primary); }
+.badge-gray      { background: rgba(107,114,128,0.18); color: var(--muted); }
+.badge-purple    { background: rgba(139,92,246,0.15); color: var(--secondary); }
+.badge-red       { background: rgba(239,68,68,0.15);  color: var(--danger); }
+.badge-amber     { background: rgba(245,158,11,0.16); color: var(--warning-text); }
+
+.ch-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.ch-desc { font-size: 12px; color: var(--muted); margin: 3px 0 6px; line-height: 1.5; }
+
+/* Keyboard focus indicators */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* === Reduced Motion === */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "manifest_version": 3,
+  "name": "DB Rollback & SQL Analyzer",
+  "version": "1.0.0",
+  "description": "Record data changes made through Adminer and roll them back with reviewed SQL, and turn a SQL query into a test case list",
+
+  "permissions": [
+    "tabs",
+    "storage",
+    "downloads"
+  ],
+
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "minimum_chrome_version": "109",
+
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["dbtools/boot.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "dbtools/*.js",
+        "dbtools/adapters/*.js",
+        "sqlcases/tokenizer.js",
+        "sqlcases/parser.js"
+      ],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ],
+
+  "icons": {
+    "16":  "icons/icon16.png",
+    "32":  "icons/icon32.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "DB Rollback & SQL Analyzer",
+    "default_icon": {
+      "16":  "icons/icon16.png",
+      "32":  "icons/icon32.png",
+      "48":  "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  }
+}

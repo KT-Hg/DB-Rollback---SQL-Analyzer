@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<!-- popup.html — the two tools, one card each.
+
+     Built on Pocket QA's popup: the same status bar, cards,
+     launcher buttons and guide modal, in the same theme. Both tools do their
+     work in a full tab (the test case tables and the change diffs need the
+     width), so the popup only says what is going on and opens them. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>DB Rollback &amp; SQL Analyzer</title>
+  <link rel="stylesheet" href="css/popup.css" />
+</head>
+
+<body>
+  <!-- ===== HEADER: what the Adminer integration is doing on this tab ===== -->
+  <div class="sticky-header">
+    <div class="status-bar">
+      <div class="status-dot" id="statusDot"></div>
+      <span class="status-label" id="tabStatus">Checking…</span>
+      <span class="status-spacer"></span>
+      <button class="icon-btn" id="toggleTheme" title="Toggle theme" aria-label="Toggle dark or light theme"><span aria-hidden="true">🌙</span></button>
+    </div>
+  </div>
+
+  <div class="main-content">
+
+    <!-- DB TEST SESSION (ADMINER) -->
+    <div class="card">
+      <div class="card-head">
+        <h3>DB Test Session</h3>
+        <button class="card-help-btn" data-card="dbtools" title="DB Test Session guide">?</button>
+        <label class="switch" title="Adminer panel — show it and record changes. Off: no panel on Adminer pages and nothing is recorded. Takes effect on open Adminer tabs straight away.">
+          <input type="checkbox" id="dbEnabledToggle" role="switch" aria-label="Adminer panel: show it and record changes" />
+          <span class="switch-slider" aria-hidden="true"></span>
+        </label>
+      </div>
+      <button id="dbStatus" class="db-status" type="button" hidden></button>
+      <button id="openDbTools" class="export-code-btn" title="Review and roll back data changed through Adminer">
+        <span class="export-code-icon">↺</span>
+        <div class="export-code-info">
+          <span class="export-code-name">Test sessions &amp; rollback</span>
+          <span class="export-code-desc">Changes made in Adminer, with the SQL to undo them</span>
+        </div>
+      </button>
+      <p class="card-note">Recording happens in the Adminer tab itself; this page reviews and rolls back.</p>
+    </div>
+
+    <!-- SQL TEST CASE DESIGNER -->
+    <div class="card">
+      <div class="card-head">
+        <h3>SQL Test Case Designer</h3>
+        <button class="card-help-btn" data-card="sqlcases" title="SQL Test Case Designer guide">?</button>
+      </div>
+      <button id="openSqlCases" class="export-code-btn" title="Parse a SQL query and generate a test case list">
+        <span class="export-code-icon">🧪</span>
+        <div class="export-code-info">
+          <span class="export-code-name">Analyze a SQL query</span>
+          <span class="export-code-desc">EP/BVA, decision table, NULL, JOIN → CSV/JSON</span>
+        </div>
+      </button>
+      <p class="card-note">Opens in a full tab — test case tables need the width.</p>
+    </div>
+
+  </div>
+
+  <div class="popup-foot">
+    <span>DB Rollback &amp; SQL Analyzer</span>
+    <span id="version"></span>
+  </div>
+
+  <!-- Card Help Modal -->
+  <div id="cardHelpModal" class="condition-help-modal" role="dialog" aria-modal="true" aria-labelledby="cardHelpTitle" aria-hidden="true">
+    <div class="condition-help-content">
+      <div class="condition-help-header">
+        <h4 id="cardHelpTitle">Guide</h4>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button id="cardHelpLangToggle" class="secondary">EN</button>
+          <button id="cardHelpClose" class="secondary">✕ Close</button>
+        </div>
+      </div>
+      <div class="condition-help-body" id="cardHelpBody"></div>
+    </div>
+  </div>
+
+  <script type="module" src="popup/popup.js"></script>
+</body>
+</html>
